@@ -244,6 +244,29 @@ class CobblerSvc(object):
         
         return yaml.dump(newdata)
 
+    def chef(self,hostname=None,**rest):
+        self.__xmlrpc_setup()
+
+        if hostname is None:
+            return "hostname is required"
+
+        results = self.remote.find_system_by_dns_name(hostname)
+
+        roles = results.get("mgmt_classes", [])
+        attributes = results.get("mgmt_parameters",{})
+
+        run_list = []
+
+        for r in roles:
+            run_list.append('role[' + r + ']')
+
+        newdata = {
+            "run_list"    : run_list,
+            "attributes" : attributes
+        }
+
+        return simplejson.dumps(newdata)
+
 def __test_setup():
 
     # this contains some code from remote.py that has been modified
@@ -434,6 +457,19 @@ def test_services_access():
     data = yaml.load(data)
     assert data.has_key("classes")
     assert data.has_key("parameters")
+
+    # Test that the Chef JSON data is correct.
+
+    url = "http://127.0.0.1/cblr/svc/op/chef/hostname/hostname0"
+    data = urlgrabber.urlread(url)
+    assert data.find("alpha") != -1
+    assert data.find("beta") ! -1
+    assert data.find("gamma") != -1
+    assert data.find("3") != -1
+
+    data = simplejson.loads(data)
+    assert data_has_key("run_list")
+    assert data.has_key("attributes")
     
     # now let's test the template file serving
     # which is used by the snippet download_config_files
